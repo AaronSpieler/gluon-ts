@@ -33,6 +33,7 @@ from gluonts.model.forecast import (
 from gluonts.mx.distribution import Distribution, DistributionOutput
 
 OutputTransform = Callable[[DataEntry, np.ndarray], np.ndarray]
+# TODO we need an elegant wrapper for this that is framework agnostic
 BlockType = mx.gluon.Block
 
 

@@ -62,6 +62,8 @@ def loss_value(loss: mx.metric.Loss) -> float:
     return loss.get_name_value()[0][1]
 
 
+# TODO: make this an abstraction as well:
+#  i.e. the Estimator gets a generic trainer, whos subtype will depend on the specific framework
 class Trainer:
     r"""
     A trainer specifies how a network is going to be trained.
@@ -151,10 +153,12 @@ class Trainer:
         self.ctx = ctx if ctx is not None else get_mxnet_context()
         self.halt = False
 
+    # TODO HAS NO USAGES?, but could keep it still
     def set_halt(self, signum: int, stack_frame: Any) -> None:
         logger.info("Received signal: {}".format(signum))
         self.halt = True
 
+    # TODO Should move it to nework abstraction
     def count_model_params(self, net: nn.HybridBlock) -> int:
         params = net.collect_params()
         num_params = 0
@@ -163,6 +167,10 @@ class Trainer:
             num_params += np.prod(v.shape)
         return num_params
 
+    # FIXME this basically just takes a network like nn.HybridBlock and changes its parameters
+    #  It doesnt return anything, one will have to have a pointer from outside to the network
+    #  This does some logging and whatnot, maybe the new 'Base' Trainer should only be concerned with logging functions
+    #  Possibly with serializing and deserializing the abstract network object
     def __call__(
         self,
         net: nn.HybridBlock,
@@ -320,6 +328,7 @@ class Trainer:
                         "score": loss_value(epoch_loss),
                     }
 
+                    # TODO: this is mxnet dependent
                     net.save_parameters(
                         epoch_info["params_path"]
                     )  # TODO: handle possible exception

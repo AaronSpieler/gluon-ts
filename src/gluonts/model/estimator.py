@@ -244,12 +244,16 @@ class GluonEstimator(Estimator):
             validation_iter=validation_data_loader,
         )
 
+        # TODO might be best if trainer actually returns trainer output!!!
+        #  trained net would have to be abstract_network type
         with self.trainer.ctx:
             # ensure that the prediction network is created within the same MXNet
             # context as the one that was used during training
             return TrainOutput(
                 transformation=transformation,
                 trained_net=trained_net,
+                # TODO this is like loading the network, should depend on network type
+                #  The abstract equivalent should get as argument the trainer
                 predictor=self.create_predictor(transformation, trained_net),
             )
 

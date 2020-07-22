@@ -224,6 +224,10 @@ class RepresentablePredictor(Predictor):
             return load_json(fp.read())
 
 
+# TODO: I think predictor classes should be created because/depend upon which
+#  framework they use, but which functionality they have
+#  - i.e. SymbolBlockPredictor, and GluonPredictor are illegitamte, but RepresentablePredictor
+#  and ParallelizedPredictor are not
 class GluonPredictor(Predictor):
     """
     Base predictor type for Gluon-based models.
@@ -281,6 +285,8 @@ class GluonPredictor(Predictor):
         self.ctx = ctx
         self.dtype = dtype
 
+    # TODO: is this really required?
+    #  only N-BEATS ensemble and some test seem to use it
     def hybridize(self, batch: DataBatch) -> None:
         """
         Hybridizes the underlying prediction network.
@@ -355,6 +361,8 @@ class GluonPredictor(Predictor):
             that.prediction_net.collect_params(),
         )
 
+    # TODO mxnet block of pytorch block should define how to serialize them
+    #  maybe through a wrapper of both
     def serialize(self, path: Path) -> None:
         # call Predictor.serialize() in order to serialize the class name
         super().serialize(path)
@@ -386,6 +394,7 @@ class GluonPredictor(Predictor):
         raise NotImplementedError()
 
 
+# TODO This would be covered if we create an abstraction for MXNET block and PYTORCH module
 class SymbolBlockPredictor(GluonPredictor):
     """
     A predictor which serializes the network structure as an MXNet symbolic
@@ -728,6 +737,7 @@ class ParallelizedPredictor(Predictor):
             assert self._send_idx == self._next_idx
 
 
+# TODO who uses this?
 class Localizer(Predictor):
     """
     A Predictor that uses an estimator to train a local model per time series and
@@ -759,6 +769,7 @@ class Localizer(Predictor):
                 yield pred
 
 
+# TODO who uses this?
 class FallbackPredictor(Predictor):
     @classmethod
     def from_predictor(
@@ -771,6 +782,7 @@ class FallbackPredictor(Predictor):
         )
 
 
+# TODO who uses this?
 def fallback(fallback_cls: Type[FallbackPredictor]):
     def decorator(predict_item):
         @functools.wraps(predict_item)
