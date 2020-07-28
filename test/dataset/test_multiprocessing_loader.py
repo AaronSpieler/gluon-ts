@@ -17,6 +17,8 @@ import random
 import tempfile
 import time
 import multiprocessing as mp
+from functools import partial
+
 
 # Third-party imports
 from collections import defaultdict
@@ -49,6 +51,7 @@ from gluonts.evaluation.backtest import backtest_metrics
 from gluonts.mx.trainer import Trainer
 from gluonts.dataset.artificial import constant_dataset
 from gluonts.evaluation import Evaluator
+from gluonts.mx.batchify import batchify
 
 # CONSTANTS:
 
@@ -122,8 +125,8 @@ def get_dataset_and_transformation():
             dataset=list_dataset,
             transform=transformation,
             batch_size=BATCH_SIZE,
-            num_workers=0,  # This is the crucial difference
-            ctx=current_context(),
+            batchify_fn=batchify,
+            num_workers=None,  # This is the crucial difference
         )
     )
 
@@ -158,14 +161,13 @@ def test_validation_loader_equivalence() -> None:
         list_dataset_pred_length,
         train_data_transformed_original,
     ) = get_dataset_and_transformation()
-    current_desired_context = current_context()
 
     validation_dataset_loader = ValidationDataLoader(
         dataset=list_dataset,
         transform=transformation,
         batch_size=BATCH_SIZE,
+        batchify_fn=batchify,
         num_workers=NUM_WORKERS_MP,  # This is the crucial difference
-        ctx=current_desired_context,
     )
 
     # multi-processed validation dataset
@@ -198,7 +200,7 @@ def test_validation_loader_equivalence() -> None:
 
     assert (
         mp_val_data_loader_result_02[0]["past_target"].context
-        == current_desired_context
+        == current_context()
     ), "Batches in incorrect context"
 
 
@@ -250,9 +252,9 @@ def test_train_loader_goes_over_all_data(num_workers) -> None:
             dataset=dataset,
             transform=transformation,
             batch_size=batch_size,
+            batchify_fn=batchify,
             num_workers=num_workers,
             num_batches_per_epoch=num_batches_per_epoch,
-            ctx=current_context(),
         )
 
         item_ids = defaultdict(int)
@@ -285,7 +287,6 @@ def test_inference_loader_equivalence() -> None:
         list_dataset_pred_length,
         train_data_transformed_original,
     ) = get_dataset_and_transformation()
-    current_desired_context = current_context()
 
     # original no multiprocessing processed validation dataset
     inference_loader_data_transformed_original = list(
@@ -293,8 +294,8 @@ def test_inference_loader_equivalence() -> None:
             dataset=list_dataset,
             transform=transformation,
             batch_size=BATCH_SIZE,
-            num_workers=0,  # This is the crucial difference
-            ctx=current_context(),
+            batchify_fn=batchify,
+            num_workers=None,  # This is the crucial difference
         )
     )
 
@@ -302,8 +303,8 @@ def test_inference_loader_equivalence() -> None:
         dataset=list_dataset,
         transform=transformation,
         batch_size=BATCH_SIZE,
+        batchify_fn=batchify,
         num_workers=NUM_WORKERS_MP,  # This is the crucial difference
-        ctx=current_context(),
     )
 
     # multi-processed validation dataset
@@ -332,7 +333,7 @@ def test_inference_loader_equivalence() -> None:
 
     assert (
         mp_inf_data_loader_result_02[0]["past_target"].context
-        == current_desired_context
+        == current_context()
     ), "Batches in incorrect context"
 
 
@@ -361,8 +362,8 @@ def test_training_loader_soft_constraint_01() -> None:
         dataset=list_dataset,
         transform=transformation,
         batch_size=BATCH_SIZE,
+        batchify_fn=partial(batchify, ctx=current_context()),
         num_workers=NUM_WORKERS_MP,  # This is the crucial difference
-        ctx=current_context(),
         num_batches_per_epoch=int(3 * exp_num_batches),
     )
 
@@ -402,8 +403,8 @@ def test_training_loader_soft_constraint_02() -> None:
         dataset=list_dataset,
         transform=transformation,
         batch_size=BATCH_SIZE,
+        batchify_fn=batchify,
         num_workers=NUM_WORKERS_MP,  # This is the crucial difference
-        ctx=current_context(),
         num_batches_per_epoch=int(0.5 * exp_num_batches),
     )
 
@@ -438,8 +439,8 @@ def test_training_loader_soft_constraint_03() -> None:
         dataset=list_dataset,
         transform=transformation,
         batch_size=BATCH_SIZE,
+        batchify_fn=batchify,
         num_workers=1,  # This is the crucial difference
-        ctx=current_context(),
         num_batches_per_epoch=int(3 * exp_num_batches),
     )
 
@@ -462,8 +463,7 @@ def test_general_functionality() -> None:
     freq = ds_info.metadata.freq
     prediction_length = ds_info.prediction_length
 
-    ctx = "cpu"
-    trainer = Trainer(ctx=ctx, epochs=3, num_batches_per_epoch=5)
+    trainer = Trainer(epochs=3, num_batches_per_epoch=5)
 
     estimator = DeepAREstimator(
         prediction_length=prediction_length, freq=freq, trainer=trainer
