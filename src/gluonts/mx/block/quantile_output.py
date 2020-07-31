@@ -23,6 +23,8 @@ from mxnet.gluon.loss import Loss
 from gluonts.core.component import validated
 from gluonts.model.common import Tensor
 
+import numpy as np
+
 
 class QuantileLoss(Loss):
     @validated()
@@ -55,11 +57,8 @@ class QuantileLoss(Loss):
 
         self.quantiles = quantiles
         self.num_quantiles = len(quantiles)
-        self.quantile_weights = (
-            nd.ones(self.num_quantiles) / self.num_quantiles
-            if not quantile_weights
-            else quantile_weights
-        )
+        self.quantile_weights = [0.5 - abs(0.5 - q) for q in self.quantiles]
+        print("quantile_weights: ", self.quantile_weights)
 
     # noinspection PyMethodOverriding
     def hybrid_forward(
@@ -98,7 +97,7 @@ class QuantileLoss(Loss):
             q = self.quantiles[i]
             weighted_qt = (
                 self.compute_quantile_loss(F, y_true, y_pred_q, q)
-                * self.quantile_weights[i].asscalar()
+                * self.quantile_weights[i]
             )
             qt_loss.append(weighted_qt)
         stacked_qt_losses = F.stack(*qt_loss, axis=-1)
