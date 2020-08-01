@@ -127,6 +127,7 @@ class VstackFeatures(SimpleTransformation):
         self.h_stack = h_stack
 
     def transform(self, data: DataEntry) -> DataEntry:
+        print("ABOUT TO STACK", self.input_fields)
         r = [
             data[fname]
             for fname in self.input_fields
@@ -136,6 +137,7 @@ class VstackFeatures(SimpleTransformation):
         data[self.output_field] = output
         for fname in self.cols_to_drop:
             del data[fname]
+        print("STACK SUCCESSFULL")
         return data
 
 

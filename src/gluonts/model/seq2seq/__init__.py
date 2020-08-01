@@ -13,13 +13,18 @@
 
 # Relative imports
 from ._mq_dnn_estimator import MQCNNEstimator, MQRNNEstimator
-from ._seq2seq_estimator import RNN2QRForecaster, Seq2SeqEstimator
+from ._seq2seq_estimator import (
+    RNN2QRForecaster,
+    Seq2SeqEstimator,
+    CNN2QRForecaster,
+)
 
 __all__ = [
     "MQCNNEstimator",
     "MQRNNEstimator",
     "RNN2QRForecaster",
     "Seq2SeqEstimator",
+    "CNN2QRForecaster",
 ]
 
 # fix Sphinx issues, see https://bit.ly/2K2eptM

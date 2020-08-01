@@ -87,14 +87,19 @@ class Seq2SeqNetworkBase(mx.gluon.HybridBlock):
             feat_static_cat
         )  # (batch_size, num_features * embedding_size)
 
+        # does nothing in case of hybridize=True?
+        scaled_target = F.expand_dims(scaled_target, 2)
+
         encoder_output_static, encoder_output_dynamic = self.encoder(
             scaled_target, embedded_cat, past_feat_dynamic_real
         )
+
         decoder_input_static, decoder_input_dynamic = self.enc2dec(
             encoder_output_static,
             encoder_output_dynamic,
-            future_feat_dynamic_real,
+            future_feat_dynamic_real,  # FOR CNN2QRForecaster this gets ignored
         )
+
         decoder_output = self.decoder(
             decoder_input_static, decoder_input_dynamic
         )

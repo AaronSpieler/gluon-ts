@@ -16,6 +16,7 @@ from typing import List
 
 # Third-party imports
 from mxnet.gluon import nn
+import numpy as np
 
 from gluonts.core.component import validated
 from gluonts.model.common import Tensor
@@ -156,23 +157,26 @@ class OneShotDecoder(Seq2SeqDecoder):
     def __init__(
         self,
         decoder_length: int,
+        encoder_length: int,
         layer_sizes: List[int],
         static_outputs_per_time_step: int,
     ) -> None:
         super().__init__()
         self.decoder_length = decoder_length
+        self.encoder_length = encoder_length
         self.static_outputs_per_time_step = static_outputs_per_time_step
+        self.layer_sizes = layer_sizes + [decoder_length]
         with self.name_scope():
-            self.mlp = MLP(layer_sizes, flatten=False)
+            self.mlp = MLP(self.layer_sizes, flatten=False)
             self.expander = nn.Dense(
-                units=decoder_length * static_outputs_per_time_step
+                units=encoder_length * static_outputs_per_time_step
             )
 
     def hybrid_forward(
         self,
         F,
-        static_input: Tensor,  # (batch_size, static_input_dim)
-        dynamic_input: Tensor,  # (batch_size,
+        static_input: Tensor,  # (batch_size, num_features_1)
+        dynamic_input: Tensor,  # (batch_size, sequence_length, num_features_2)
     ) -> Tensor:
         """
         OneShotDecoder forward call
@@ -184,20 +188,23 @@ class OneShotDecoder(Seq2SeqDecoder):
             API in MXNet.
 
         static_input
-            static features, shape (batch_size, num_features) or (N, C)
+            static features, shape (batch_size, num_features_1) or (N, C_1)
 
         dynamic_input
-            dynamic_features, shape (batch_size, sequence_length, num_features)
-            or (N, T, C)
+            dynamic_features, shape (batch_size, sequence_length, num_features_2)
+            or (N, T, C_2)
         Returns
         -------
         Tensor
             mlp output, shape (batch_size, dec_len, size of last layer)
         """
         static_input_tile = self.expander(static_input).reshape(
-            (0, self.decoder_length, self.static_outputs_per_time_step)
+            (0, self.encoder_length, self.static_outputs_per_time_step)
         )
         combined_input = F.concat(dynamic_input, static_input_tile, dim=2)
 
-        out = self.mlp(combined_input)  # (N, T, layer_sizes[-1])
+        out = self.mlp(combined_input).reshape(
+            (0, self.decoder_length, -1)
+        )  # (N, T, layer_sizes[-1])
+
         return out
