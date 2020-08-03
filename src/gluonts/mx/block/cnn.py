@@ -100,7 +100,7 @@ class CausalConv1D(gluon.HybridBlock):
 
         if self.residual:
             # residual connection
-            ct = F.Activation(data + ct, act_type='relu')
+            ct = F.Activation(data + ct, act_type="relu")
 
         return ct
 
