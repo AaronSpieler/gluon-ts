@@ -59,6 +59,7 @@ class CausalConv1D(gluon.HybridBlock):
         kernel_size: int,
         dilation: int = 1,
         activation: Optional[str] = None,
+        residual: bool = False,
         **kwargs,
     ):
         super(CausalConv1D, self).__init__(**kwargs)
@@ -74,6 +75,7 @@ class CausalConv1D(gluon.HybridBlock):
             activation=activation,
             **kwargs,
         )
+        self.residual = residual
 
     # noinspection PyMethodOverriding
     def hybrid_forward(self, F, data: Tensor) -> Tensor:
@@ -95,6 +97,11 @@ class CausalConv1D(gluon.HybridBlock):
         ct = self.conv1d(data)
         if self.kernel_size > 0:
             ct = F.slice_axis(ct, axis=2, begin=0, end=-self.padding)
+
+        if self.residual:
+            # residual connection
+            ct = F.Activation(data + ct, act_type='relu')
+
         return ct
 
 

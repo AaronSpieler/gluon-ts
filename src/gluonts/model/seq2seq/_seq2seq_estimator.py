@@ -514,9 +514,9 @@ class CNN2QRForecaster(Seq2SeqEstimator):
         use_feat_dynamic_real: bool = False,
     ) -> None:
         encoder = HierarchicalCausalConv1DEncoder(
-            dilation_seq=[1, 3, 9],
-            kernel_size_seq=[7, 3, 3],
-            channels_seq=[30, 30, 30],
+            dilation_seq=[1, 3, 9, 11],
+            kernel_size_seq=[7, 3, 3, 3],
+            channels_seq=[30, 30, 30, 30],
             use_residual=True,
             use_dynamic_feat=True,
             use_static_feat=True,

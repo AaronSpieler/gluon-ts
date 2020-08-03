@@ -173,8 +173,10 @@ class HierarchicalCausalConv1DEncoder(Seq2SeqEncoder):
                 dilation=dilation,
                 activation="relu",
                 prefix=f"conv_{layer_no:#02d}'_",
+                residual=layer_no != 0
             )
             self.cnn.add(convolution)
+            #self.cnn.add(nn.BatchNorm())
 
     def hybrid_forward(
         self,
