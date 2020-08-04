@@ -170,7 +170,9 @@ class GluonEstimator(Estimator):
         """
         raise NotImplementedError
 
-    def create_training_network(self) -> HybridBlock:
+    def create_training_network(
+        self,
+    ) -> HybridBlock:  # TODO should return GenericNetwork
         """
         Create and return the network used for training (i.e., computing the
         loss).
@@ -183,7 +185,9 @@ class GluonEstimator(Estimator):
         raise NotImplementedError
 
     def create_predictor(
-        self, transformation: Transformation, trained_network: HybridBlock
+        self,
+        transformation: Transformation,
+        trained_network: HybridBlock,  # TODO should take GenericNetwork
     ) -> Predictor:
         """
         Create and return a predictor object.
@@ -235,14 +239,21 @@ class GluonEstimator(Estimator):
         # ensure that the training network is created within the same MXNet
         # context as the one that will be used during training
         # TODO: should be like this:
-        #  trained_net = self.create_training_network(self.trainer)
+        #  training_network = self.create_training_network(self.trainer)
         #  # the with self.trainer.ctx can then be called withing the create_training_network
+        #  # the return type should be GenericNetwork
         with self.trainer.ctx:
             trained_net = self.create_training_network()
 
         # TODO:
-        #  this call should return TrainOutput
-        #  i.e. my_training_output = ...
+        #  this call should return GenericNetwork
+        #  i.e. trained_network = self.trainer(
+        #             net=training_network,
+        #             # get_forward_input_names should be a method of GenericNetwork:
+        #             input_names=get_hybrid_forward_input_names(training_network),
+        #             train_iter=training_data_loader,
+        #             validation_iter=validation_data_loader,
+        #         )
         self.trainer(
             net=trained_net,
             input_names=get_hybrid_forward_input_names(trained_net),
@@ -250,17 +261,17 @@ class GluonEstimator(Estimator):
             validation_iter=validation_data_loader,
         )
 
-        # TODO might be best if trainer actually returns trainer output!!!
-        #  trained net would have to be abstract_network type
-        #  thus the could below would move into the trainer and we wouldn't need it here
+        # TODO the `with self.trainer.ctx:` should move into the create_predictor method,
+        #  where the context can be taken from the Trainer
         with self.trainer.ctx:
             # ensure that the prediction network is created within the same MXNet
             # context as the one that was used during training
             return TrainOutput(
                 transformation=transformation,
                 trained_net=trained_net,
-                # TODO this is like loading the network, should depend on network type
-                #  The abstract equivalent should get as argument the trainer
+                # TODO this is like loading the network, should depend on network type,
+                #  so trained_net should be of type GenericNetwork
+                #  the create_predictor should also get the Trainer as argument
                 predictor=self.create_predictor(transformation, trained_net),
             )
 
