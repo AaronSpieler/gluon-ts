@@ -177,7 +177,7 @@ class Trainer:
         input_names: List[str],
         train_iter: TrainDataLoader,
         validation_iter: Optional[ValidationDataLoader] = None,
-    ) -> None:  # TODO: we may want to return some training information here
+    ) -> None:  # TODO: we may want to return some training information here: TODO: return TrainingOutput
         is_validation_available = validation_iter is not None
         self.halt = False
 

@@ -118,7 +118,7 @@ class DummyEstimator(Estimator):
 
 class TrainOutput(NamedTuple):
     transformation: Transformation
-    trained_net: HybridBlock
+    trained_net: HybridBlock  # TODO should be GenericNetwork type
     predictor: Predictor
 
 
@@ -234,9 +234,15 @@ class GluonEstimator(Estimator):
 
         # ensure that the training network is created within the same MXNet
         # context as the one that will be used during training
+        # TODO: should be like this:
+        #  trained_net = self.create_training_network(self.trainer)
+        #  # the with self.trainer.ctx can then be called withing the create_training_network
         with self.trainer.ctx:
             trained_net = self.create_training_network()
 
+        # TODO:
+        #  this call should return TrainOutput
+        #  i.e. my_training_output = ...
         self.trainer(
             net=trained_net,
             input_names=get_hybrid_forward_input_names(trained_net),
@@ -246,6 +252,7 @@ class GluonEstimator(Estimator):
 
         # TODO might be best if trainer actually returns trainer output!!!
         #  trained net would have to be abstract_network type
+        #  thus the could below would move into the trainer and we wouldn't need it here
         with self.trainer.ctx:
             # ensure that the prediction network is created within the same MXNet
             # context as the one that was used during training

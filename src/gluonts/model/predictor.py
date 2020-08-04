@@ -426,17 +426,21 @@ class SymbolBlockPredictor(GluonPredictor):
             with (path / "parameters.json").open("r") as fp:
                 parameters = load_json(fp.read())
 
-            parameters["ctx"] = ctx
-
             # deserialize transformation chain
             with (path / "input_transform.json").open("r") as fp:
                 transform = load_json(fp.read())
+
+            ### START OF DIFFERENCE
 
             # deserialize prediction network
             num_inputs = len(parameters["input_names"])
             prediction_net = import_symb_block(
                 num_inputs, path, "prediction_net"
             )
+
+            ### END OF DIFFERENCE
+
+            parameters["ctx"] = ctx
 
             return SymbolBlockPredictor(
                 input_transform=transform,
@@ -464,35 +468,13 @@ class RepresentableBlockPredictor(GluonPredictor):
 
     BlockType = mx.gluon.HybridBlock
 
-    def __init__(
-        self,
-        prediction_net: BlockType,
-        batch_size: int,
-        prediction_length: int,
-        freq: str,
-        ctx: mx.Context,
-        input_transform: Transformation,
-        lead_time: int = 0,
-        forecast_generator: ForecastGenerator = SampleForecastGenerator(),
-        output_transform: Optional[
-            Callable[[DataEntry, np.ndarray], np.ndarray]
-        ] = None,
-        dtype: DType = np.float32,
-    ) -> None:
+    def __init__(self, prediction_net: BlockType, **kwargs) -> None:
         super().__init__(
             input_names=get_hybrid_forward_input_names(prediction_net),
-            prediction_net=prediction_net,
-            batch_size=batch_size,
-            prediction_length=prediction_length,
-            freq=freq,
-            ctx=ctx,
-            input_transform=input_transform,
-            lead_time=lead_time,
-            forecast_generator=forecast_generator,
-            output_transform=output_transform,
-            dtype=dtype,
+            **kwargs,
         )
 
+    # TODO: this is a function just converts the predictor to a SymbolBlockPredictor
     def as_symbol_block_predictor(
         self, batch: DataBatch
     ) -> SymbolBlockPredictor:
@@ -542,12 +524,16 @@ class RepresentableBlockPredictor(GluonPredictor):
             with (path / "input_transform.json").open("r") as fp:
                 transform = load_json(fp.read())
 
+            ### START OF DIFFERENCE
+
             # deserialize prediction network
             prediction_net = import_repr_block(path, "prediction_net")
 
             # input_names is derived from the prediction_net
             if "input_names" in parameters:
                 del parameters["input_names"]
+
+            ### END OF DIFFERENCE
 
             parameters["ctx"] = ctx
 
@@ -593,6 +579,7 @@ def _worker_loop(
         output_queue.put((idx, worker_id, result))
 
 
+# TODO THIS IS GENERIC, no fix needed
 class ParallelizedPredictor(Predictor):
     """
     Runs multiple instances (workers) of a predictor in parallel.
@@ -738,6 +725,7 @@ class ParallelizedPredictor(Predictor):
 
 
 # TODO who uses this?
+# TODO THIS IS GENERIC, no fix needed
 class Localizer(Predictor):
     """
     A Predictor that uses an estimator to train a local model per time series and
