@@ -41,6 +41,7 @@ from gluonts.transform import (
     RenameFields,
     SetField,
     TestSplitSampler,
+    ExpectedNumInstanceSampler,
     Transformation,
     VstackFeatures,
 )
@@ -303,7 +304,7 @@ class ForkingSeq2SeqEstimator(GluonEstimator):
             # because of how the forking decoder works, every time step
             # in context is used for splitting, which is why we use the TestSplitSampler
             ForkingSequenceSplitter(
-                train_sampler=TestSplitSampler(),
+                train_sampler=ExpectedNumInstanceSampler(num_instances=1),
                 enc_len=self.context_length,
                 dec_len=self.prediction_length,
                 encoder_series_fields=[

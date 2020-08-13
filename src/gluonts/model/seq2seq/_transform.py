@@ -17,6 +17,7 @@ from typing import Iterator, List, Optional
 
 # Third-party imports
 import numpy as np
+from joblib import delayed, parallel, Parallel
 
 # First-party imports
 from gluonts.core.component import validated
@@ -114,11 +115,14 @@ class ForkingSequenceSplitter(FlatMapTransformation):
             if len(target) < self.dec_len:
                 return
 
-            sampling_indices = self.train_sampler(
+            sampled_split_indices = self.train_sampler(
                 target, 0, len(target) - self.dec_len
             )
+            # print("SOMETHING IS EVEN MORE WRONG")
+            # print(sample_split_indices)
+            # print(len(target) - self.dec_len)
         else:
-            sampling_indices = [len(target)]
+            sampled_split_indices = [len(target)]
 
         # Loops over all encoder and decoder fields even those that are disabled to
         # set to dummy zero fields in those cases
@@ -126,9 +130,10 @@ class ForkingSequenceSplitter(FlatMapTransformation):
             set(self.encoder_series_fields + self.decoder_series_fields)
         )
 
-        for sampling_idx in sampling_indices:
+        #print("sampled_split_indices: ", sampled_split_indices)
+        for sampled_split_idx in sampled_split_indices:
             # ensure start index is not negative
-            start_idx = max(0, sampling_idx - self.enc_len)
+            start_idx = max(0, sampled_split_idx - self.enc_len)
 
             # irrelevant data should have been removed by now in the
             # transformation chain, so copying everything is ok
@@ -137,6 +142,7 @@ class ForkingSequenceSplitter(FlatMapTransformation):
             for ts_field in list(ts_fields_counter.keys()):
 
                 # target is 1d, this ensures ts is always 2d
+                # i.e. first dimension is num_features or similar
                 ts = np.atleast_2d(out[ts_field])
 
                 if ts_fields_counter[ts_field] == 1:
@@ -144,8 +150,8 @@ class ForkingSequenceSplitter(FlatMapTransformation):
                 else:
                     ts_fields_counter[ts_field] -= 1
 
-                # take enc_len values from ts, depending on sampling_idx
-                slice = ts[:, start_idx:sampling_idx]
+                # take up to enc_len values from ts, depending on sampling_idx
+                slice = ts[:, start_idx:sampled_split_idx]
 
                 past_piece = np.zeros(shape=(len(ts), self.enc_len))
 
@@ -171,16 +177,57 @@ class ForkingSequenceSplitter(FlatMapTransformation):
                         shape=(self.enc_len, self.dec_len, len(ts))
                     )
 
+                    forking_dec_field_v2 = np.zeros(
+                        shape=(self.enc_len, self.dec_len, len(ts))
+                    )
+
                     # in case it's not disabled we copy the actual values
                     if ts_field not in self.decoder_disabled_fields:
-                        skip = max(0, self.enc_len - sampling_idx)
+                        # filling the forking_dec_field will be skipped, if the encoder did not
+                        # have valid input for the full context length, which happens when the encoder is placed
+                        # at the very beginning of the time series
+                        # TODO: figure out why we do this
+                        skip = 0  # max(0, self.enc_len - sampled_split_idx)
                         # This section takes by far the longest time computationally:
                         # This scales linearly in self.enc_len and linearly in self.dec_len
-                        for dec_field, idx in zip(
-                            forking_dec_field[skip:],
-                            range(start_idx + 1, start_idx + self.enc_len + 1),
-                        ):
-                            dec_field[:] = ts[:, idx : idx + self.dec_len].T
+
+
+                        # ORIGINAL CODE
+                        # for dec_field, idx in zip(
+                        #     forking_dec_field[skip:],
+                        #     range(start_idx + 1, start_idx + self.enc_len + 1),
+                        # ):
+                        #     dec_field[:] = ts[:, idx : idx + self.dec_len].T
+
+
+                        # EXAMPLE HOW TO
+                        # sub_arrays = Parallel(n_jobs=4)(  # Use 6 cores
+                        #     delayed(my_function)(np_array[:, :, i])  # Apply my_function
+                        #     for i in range(np_array.shape[2]))  # For each 3rd dimension
+                        #
+                        # # ... Concatenate the list of returned arrays
+                        # parallel_results = np.stack(sub_arrays, axis=2)
+
+                        # NEW CODE
+                        sub_arrays = Parallel(n_jobs=4)(  # Use 4 cores
+                            delayed(lambda x: x)(ts[:, idx: idx + self.dec_len].T)  # Apply my_function
+                            for idx in range(start_idx + 1, start_idx + self.enc_len + 1))  # For each 3rd dimension
+
+                        forking_dec_field_v2[skip:] = np.stack(sub_arrays)
+
+                        if False:
+                            print("forking_dec_field")
+                            print(forking_dec_field.shape)
+                            print(forking_dec_field)
+                            print("forking_dec_field_v2")
+                            print(forking_dec_field_v2.shape)
+                            print(forking_dec_field_v2)
+                            print()
+                            print("equal?: ", np.array_equal(forking_dec_field_v2, forking_dec_field))
+                            print()
+
+                        forking_dec_field = forking_dec_field_v2
+
                     if forking_dec_field.shape[-1] == 1:
                         out[self._future(ts_field)] = np.squeeze(
                             forking_dec_field, axis=-1
@@ -190,13 +237,13 @@ class ForkingSequenceSplitter(FlatMapTransformation):
 
             # So far pad indicator not in use
             pad_indicator = np.zeros(self.enc_len)
-            pad_length = max(0, self.enc_len - sampling_idx)
+            pad_length = max(0, self.enc_len - sampled_split_idx)
             pad_indicator[:pad_length] = True
             out[self._past(self.is_pad_out)] = pad_indicator
 
             # So far pad forecast_start not in use
             out[FieldName.FORECAST_START] = shift_timestamp(
-                out[self.start_in], sampling_idx
+                out[self.start_in], sampled_split_idx
             )
 
             yield out
